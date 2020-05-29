@@ -44,12 +44,32 @@ const Area road(49, 12, roadMap);
 class Player
 {
   public:
-    Player() : x(0), y(15), dir(0), frame(0) {}
+    Player() : x(0), y(15), dir(0), frame(0), attack(0) {}
+
+    const uint8_t *getFrame(int currentY);
+    uint8_t getFrameSize();
 
     int x, y;
     uint8_t dir;
     uint8_t frame;
+    uint8_t attack;
 };
+
+const uint8_t *Player::getFrame(int currentY)
+{
+  if (frame < 8)
+    return _image_renegade_data + (currentY - y + 15) * 64 *2 + frame * 8 * 2;
+  else
+    return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - 8) * 12 * 2;
+}
+
+uint8_t Player::getFrameSize()
+{
+  if (frame < 8)
+    return 8;
+  else
+    return 12;
+}
 
 Player pc;
 
@@ -179,12 +199,13 @@ void World::draw()
       }*/
       if ((currentY > pc.y - 16) && (currentY <= pc.y))
       {
-        const uint8_t *data = _image_renegade_data + (currentY - pc.y + 15) * 64 *2 + pc.frame * 8 * 2;
-        for (int i = 0; i < 8; i++)
+        uint8_t len = pc.getFrameSize();
+        const uint8_t *data = pc.getFrame(currentY);
+        for (int i = 0; i < len; i++)
         {
           int k = i;
           if (pc.dir == 1)
-            k = 8 - k;
+            k = len - k;
           if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
           {
             lineBuffer[(pc.x - startX + k) * 2] = data[i * 2];
@@ -237,8 +258,31 @@ void loop() {
   t = (t + 1) % 8;
   if ((t == 0) || (t == 4))
   {
+    uint8_t btn = checkButton(TAButton1 | TAButton2);
     uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-    if (joyDir > 0)
+    if (pc.attack)
+    {
+      pc.attack--;
+      if (pc.attack == 0)
+      {
+        if (pc.frame == 8)
+          pc.frame = 2;
+        else
+          pc.frame = 0;
+      }
+    }
+    else if (btn > 0)
+    {
+      if (btn & TAButton1)
+      {
+        pc.attack = 4;
+        if (pc.frame >= 2)
+          pc.frame = 9;
+        else
+          pc.frame = 8;
+      }
+    }
+    else if (joyDir > 0)
     {
       if (pc.frame >= 4)
         pc.frame = 0;
