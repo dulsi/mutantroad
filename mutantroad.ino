@@ -4,6 +4,7 @@
 #include "TinyConfig.h"
 #include "tileset.h"
 #include "renegade.h"
+#include "mutant.h"
 
 
 #ifdef TINYARCADE_CONFIG
@@ -76,7 +77,7 @@ Player pc;
 class World
 {
   public:
-    World(const Area *cArea) : currentArea(cArea) { init(); }
+    World(const Area *cArea) : currentArea(cArea), tick(0) { init(); }
     void init();
     void update();
     void draw();
@@ -84,6 +85,7 @@ class World
     const uint8_t *getTileData(int tile, int y);
 
     const Area *currentArea;
+    int tick;
 };
 
 World world(&road);
@@ -94,6 +96,70 @@ void World::init()
 
 void World::update()
 {
+  tick = (tick + 1) % 8;
+  if ((tick == 0) || (tick == 4))
+  {
+    uint8_t btn = checkButton(TAButton1 | TAButton2);
+    uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+    if (pc.attack)
+    {
+      pc.attack--;
+      if (pc.attack == 0)
+      {
+        if (pc.frame == 8)
+          pc.frame = 2;
+        else
+          pc.frame = 0;
+      }
+    }
+    else if (btn > 0)
+    {
+      if (btn & TAButton1)
+      {
+        pc.attack = 4;
+        if (pc.frame >= 2)
+          pc.frame = 9;
+        else
+          pc.frame = 8;
+      }
+    }
+    else if (joyDir > 0)
+    {
+      if (pc.frame >= 4)
+        pc.frame = 0;
+      if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
+        pc.y--;
+      else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
+        pc.y++;
+      if (joyDir & TAJoystickLeft)
+      {
+        if (pc.x > 0)
+          pc.x--;
+        pc.dir = 1;
+      }
+      else if (joyDir & TAJoystickRight)
+      {
+        if (pc.x + 9 < world.currentArea->xSize * 8)
+          pc.x++;
+        pc.dir = 0;
+      }
+      if (tick == 0)
+        pc.frame = (pc.frame + 1) % 4;
+    }
+    else if (tick == 0)
+    {
+      if (pc.frame < 4)
+      {
+        pc.frame = 4;
+      }
+      else
+      {
+        pc.frame++;
+        if (pc.frame == 8)
+          pc.frame = 4;
+      }
+    }
+  }
 }
 
 
@@ -235,7 +301,6 @@ const uint8_t *World::getTileData(int tile, int y)
   return _image_tileset_data + (x + y * (8 * 8 )) * 2;
 }
 
-int t = 0;
 void setup() {
   arcadeInit();
   display.begin();
@@ -255,70 +320,6 @@ void setup() {
 void loop() {
   world.update();
   world.draw();
-  t = (t + 1) % 8;
-  if ((t == 0) || (t == 4))
-  {
-    uint8_t btn = checkButton(TAButton1 | TAButton2);
-    uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-    if (pc.attack)
-    {
-      pc.attack--;
-      if (pc.attack == 0)
-      {
-        if (pc.frame == 8)
-          pc.frame = 2;
-        else
-          pc.frame = 0;
-      }
-    }
-    else if (btn > 0)
-    {
-      if (btn & TAButton1)
-      {
-        pc.attack = 4;
-        if (pc.frame >= 2)
-          pc.frame = 9;
-        else
-          pc.frame = 8;
-      }
-    }
-    else if (joyDir > 0)
-    {
-      if (pc.frame >= 4)
-        pc.frame = 0;
-      if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
-        pc.y--;
-      else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
-        pc.y++;
-      if (joyDir & TAJoystickLeft)
-      {
-        if (pc.x > 0)
-          pc.x--;
-        pc.dir = 1;
-      }
-      else if (joyDir & TAJoystickRight)
-      {
-        if (pc.x + 9 < world.currentArea->xSize * 8)
-          pc.x++;
-        pc.dir = 0;
-      }
-      if (t == 0)
-        pc.frame = (pc.frame + 1) % 4;
-    }
-    else if (t == 0)
-    {
-      if (pc.frame < 4)
-      {
-        pc.frame = 4;
-      }
-      else
-      {
-        pc.frame++;
-        if (pc.frame == 8)
-          pc.frame = 4;
-      }
-    }
-  }
   unsigned long oldTime = lastTime;
   lastTime = millis();
   if ((lastTime > oldTime) && (lastTime - oldTime < 33))
