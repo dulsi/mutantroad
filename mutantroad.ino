@@ -42,37 +42,82 @@ const uint8_t roadMap[] = {
 };
 const Area road(49, 12, roadMap);
 
-class Player
+#define OBJTYPE_NONE 0
+#define OBJTYPE_PLAYER 1
+#define OBJTYPE_MUTANT 2
+
+class Mob
 {
   public:
-    Player() : x(0), y(15), dir(0), frame(0), attack(0) {}
+    Mob() : objtype(OBJTYPE_NONE), x(0), y(0), dir(0), frame(0), attack(0) {}
 
+    int getAdjustedX();
     const uint8_t *getFrame(int currentY);
     uint8_t getFrameSize();
 
+    uint8_t objtype;
     int x, y;
     uint8_t dir;
     uint8_t frame;
     uint8_t attack;
 };
 
-const uint8_t *Player::getFrame(int currentY)
+int Mob::getAdjustedX()
 {
-  if (frame < 8)
-    return _image_renegade_data + (currentY - y + 15) * 64 *2 + frame * 8 * 2;
-  else
-    return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - 8) * 12 * 2;
+  switch(objtype)
+  {
+    case OBJTYPE_PLAYER:
+      if ((frame < 8) || (dir == 0))
+        return x;
+      else
+        return x - 4;
+    default:
+      return x;
+  }
 }
 
-uint8_t Player::getFrameSize()
+const uint8_t *Mob::getFrame(int currentY)
 {
-  if (frame < 8)
-    return 8;
-  else
-    return 12;
+  switch(objtype)
+  {
+    case OBJTYPE_PLAYER:
+      if (frame < 8)
+        return _image_renegade_data + (currentY - y + 15) * 64 *2 + frame * 8 * 2;
+      else
+        return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - 8) * 12 * 2;
+      break;
+    case OBJTYPE_MUTANT:
+//      if (frame < 8)
+        return _image_mutant_data + (currentY - y + 15) * 32 *2 + frame * 8 * 2;
+/*      else
+        return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - 8) * 12 * 2;*/
+      break;
+    default:
+      break;
+  }
 }
 
-Player pc;
+uint8_t Mob::getFrameSize()
+{
+  switch(objtype)
+  {
+    case OBJTYPE_PLAYER:
+    case OBJTYPE_MUTANT:
+      if (frame < 8)
+        return 8;
+      else
+        return 12;
+      break;
+    default:
+      break;
+  }
+}
+
+#define MAX_MOBS 10
+#define MOBS_NONE 255
+
+Mob mobs[MAX_MOBS];
+uint8_t order[MAX_MOBS];
 
 class World
 {
@@ -92,72 +137,88 @@ World world(&road);
 
 void World::init()
 {
+  mobs[0].objtype = OBJTYPE_PLAYER;
+  mobs[0].x = 0;
+  mobs[0].y = 78;
+  mobs[1].objtype = OBJTYPE_MUTANT;
+  mobs[1].x = 50;
+  mobs[1].y = 78;
 }
 
 void World::update()
 {
-  tick = (tick + 1) % 8;
-  if ((tick == 0) || (tick == 4))
+  for (int i = 0; i < MAX_MOBS; i++)
   {
-    uint8_t btn = checkButton(TAButton1 | TAButton2);
-    uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-    if (pc.attack)
+    switch(mobs[i].objtype)
     {
-      pc.attack--;
-      if (pc.attack == 0)
-      {
-        if (pc.frame == 8)
-          pc.frame = 2;
-        else
-          pc.frame = 0;
-      }
-    }
-    else if (btn > 0)
-    {
-      if (btn & TAButton1)
-      {
-        pc.attack = 4;
-        if (pc.frame >= 2)
-          pc.frame = 9;
-        else
-          pc.frame = 8;
-      }
-    }
-    else if (joyDir > 0)
-    {
-      if (pc.frame >= 4)
-        pc.frame = 0;
-      if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
-        pc.y--;
-      else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
-        pc.y++;
-      if (joyDir & TAJoystickLeft)
-      {
-        if (pc.x > 0)
-          pc.x--;
-        pc.dir = 1;
-      }
-      else if (joyDir & TAJoystickRight)
-      {
-        if (pc.x + 9 < world.currentArea->xSize * 8)
-          pc.x++;
-        pc.dir = 0;
-      }
-      if (tick == 0)
-        pc.frame = (pc.frame + 1) % 4;
-    }
-    else if (tick == 0)
-    {
-      if (pc.frame < 4)
-      {
-        pc.frame = 4;
-      }
-      else
-      {
-        pc.frame++;
-        if (pc.frame == 8)
-          pc.frame = 4;
-      }
+      case OBJTYPE_PLAYER:
+        tick = (tick + 1) % 8;
+        if ((tick == 0) || (tick == 4))
+        {
+          uint8_t btn = checkButton(TAButton1 | TAButton2);
+          uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+          if (mobs[i].attack)
+          {
+            mobs[i].attack--;
+            if (mobs[i].attack == 0)
+            {
+              if (mobs[i].frame == 8)
+                mobs[i].frame = 2;
+              else
+                mobs[i].frame = 0;
+            }
+          }
+          else if (btn > 0)
+          {
+            if (btn & TAButton1)
+            {
+              mobs[i].attack = 4;
+              if (mobs[i].frame >= 2)
+                mobs[i].frame = 9;
+              else
+                mobs[i].frame = 8;
+            }
+          }
+          else if (joyDir > 0)
+          {
+            if (mobs[i].frame >= 4)
+              mobs[i].frame = 0;
+            if ((joyDir & TAJoystickUp) && (mobs[i].y - 16 > 0))
+              mobs[i].y--;
+            else if ((joyDir & TAJoystickDown) && (mobs[i].y + 1 < world.currentArea->ySize * 8))
+              mobs[i].y++;
+            if (joyDir & TAJoystickLeft)
+            {
+              if (mobs[i].x > 0)
+                mobs[i].x--;
+              mobs[i].dir = 1;
+            }
+            else if (joyDir & TAJoystickRight)
+            {
+              if (mobs[i].x + 9 < world.currentArea->xSize * 8)
+                mobs[i].x++;
+              mobs[i].dir = 0;
+            }
+            if (tick == 0)
+              mobs[i].frame = (mobs[i].frame + 1) % 4;
+          }
+          else if (tick == 0)
+          {
+            if (mobs[i].frame < 4)
+            {
+              mobs[i].frame = 4;
+            }
+            else
+            {
+              mobs[i].frame++;
+              if (mobs[i].frame == 8)
+                mobs[i].frame = 4;
+            }
+          }
+        }
+        break;
+      default:
+        break;
     }
   }
 }
@@ -167,8 +228,8 @@ void World::draw()
 {
   int startX(0), startY(0);
 
-  startX = pc.x + 52 - 96;
-  startY = pc.y + 20 - 64;
+  startX = mobs[0].x + 52 - 96;
+  startY = mobs[0].y + 20 - 64;
   if (startX < 0)
     startX = 0;
   else if (startX + 96 >= currentArea->xSize * 8)
@@ -263,19 +324,53 @@ void World::draw()
           }
         }
       }*/
-      if ((currentY > pc.y - 16) && (currentY <= pc.y))
+      int orderidx;
+      for (orderidx = 0; orderidx < MAX_MOBS; orderidx++)
       {
-        uint8_t len = pc.getFrameSize();
-        const uint8_t *data = pc.getFrame(currentY);
-        for (int i = 0; i < len; i++)
+        if (mobs[orderidx].objtype == OBJTYPE_NONE)
+          order[orderidx] = MOBS_NONE;
+        else if (orderidx == 0)
+          order[orderidx] = orderidx;
+        else
         {
-          int k = i;
-          if (pc.dir == 1)
-            k = len - k;
-          if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
+          int w = 0;
+          for (w = 0; w < orderidx; w++)
           {
-            lineBuffer[(pc.x - startX + k) * 2] = data[i * 2];
-            lineBuffer[(pc.x - startX + k) * 2 + 1] = data[i * 2 + 1];
+            if (order[w] == MOBS_NONE)
+            {
+              order[w] = orderidx;
+              order[orderidx] = MOBS_NONE;
+            }
+            if (mobs[orderidx].y < mobs[order[w]].y)
+              break;
+          }
+          if (w != orderidx)
+          {
+            memmove(order + w + 1, order + w, orderidx - w);
+          }
+          order[w] = orderidx;
+        }
+      }
+      for (orderidx = 0; orderidx < MAX_MOBS; orderidx++)
+      {
+        if (order[orderidx] == MOBS_NONE)
+          break;
+        if ((currentY > mobs[order[orderidx]].y - 16) && (currentY <= mobs[order[orderidx]].y))
+        {
+          uint8_t len = mobs[order[orderidx]].getFrameSize();
+          const uint8_t *data = mobs[order[orderidx]].getFrame(currentY);
+          int adjustedX = mobs[order[orderidx]].getAdjustedX();
+          for (int i = 0; i < len; i++)
+          {
+            int k = i;
+            if (mobs[order[orderidx]].dir == 1)
+              k = len - k;
+            if (((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f)) &&
+              (adjustedX - startX + k >= 0) && (adjustedX - startX + k < 96))
+            {
+              lineBuffer[(adjustedX - startX + k) * 2] = data[i * 2];
+              lineBuffer[(adjustedX - startX + k) * 2 + 1] = data[i * 2 + 1];
+            }
           }
         }
       }
