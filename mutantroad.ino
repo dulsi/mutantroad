@@ -179,7 +179,7 @@ void World::draw()
       }*/
       if ((currentY > pc.y - 16) && (currentY <= pc.y))
       {
-        const uint8_t *data = _image_renegade_data + (currentY - pc.y + 15) * 32 *2 + pc.frame * 8 * 2;
+        const uint8_t *data = _image_renegade_data + (currentY - pc.y + 15) * 64 *2 + pc.frame * 8 * 2;
         for (int i = 0; i < 8; i++)
         {
           int k = i;
@@ -234,26 +234,46 @@ void setup() {
 void loop() {
   world.update();
   world.draw();
-  t = (t + 1) % 4;
-  if (t == 0){
+  t = (t + 1) % 8;
+  if ((t == 0) || (t == 4))
+  {
     uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-    if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
-      pc.y--;
-    else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
-      pc.y++;
-    if (joyDir & TAJoystickLeft)
+    if (joyDir > 0)
     {
-      if (pc.x > 0)
-        pc.x--;
-      pc.dir = 1;
+      if (pc.frame >= 4)
+        pc.frame = 0;
+      if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
+        pc.y--;
+      else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
+        pc.y++;
+      if (joyDir & TAJoystickLeft)
+      {
+        if (pc.x > 0)
+          pc.x--;
+        pc.dir = 1;
+      }
+      else if (joyDir & TAJoystickRight)
+      {
+        if (pc.x + 9 < world.currentArea->xSize * 8)
+          pc.x++;
+        pc.dir = 0;
+      }
+      if (t == 0)
+        pc.frame = (pc.frame + 1) % 4;
     }
-    else if (joyDir & TAJoystickRight)
+    else if (t == 0)
     {
-      if (pc.x + 9 < world.currentArea->xSize * 8)
-        pc.x++;
-      pc.dir = 0;
+      if (pc.frame < 4)
+      {
+        pc.frame = 4;
+      }
+      else
+      {
+        pc.frame++;
+        if (pc.frame == 8)
+          pc.frame = 4;
+      }
     }
-    pc.frame = (pc.frame + 1) % 4;
   }
   unsigned long oldTime = lastTime;
   lastTime = millis();
