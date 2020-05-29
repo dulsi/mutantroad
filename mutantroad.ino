@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include "TinyConfig.h"
 #include "tileset.h"
+#include "renegade.h"
 
 
 #ifdef TINYARCADE_CONFIG
@@ -40,6 +41,18 @@ const uint8_t roadMap[] = {
 };
 const Area road(49, 12, roadMap);
 
+class Player
+{
+  public:
+    Player() : x(0), y(15), dir(0), frame(0) {}
+
+    int x, y;
+    uint8_t dir;
+    uint8_t frame;
+};
+
+Player pc;
+
 class World
 {
   public:
@@ -68,8 +81,16 @@ void World::draw()
 {
   int startX(0), startY(0);
 
-//  startX = pc.x - 46;
-//  startY = pc.y - 30;
+  startX = pc.x + 52 - 96;
+  startY = pc.y + 20 - 64;
+  if (startX < 0)
+    startX = 0;
+  else if (startX + 96 >= currentArea->xSize * 8)
+    startX = currentArea->xSize * 8 - 96;
+  if (startY < 0)
+    startY = 0;
+  else if (startY + 64 >= currentArea->ySize * 8)
+    startY = currentArea->ySize * 8 - 64;
   display.goTo(0,0);
   display.startData();
 
@@ -155,30 +176,24 @@ void World::draw()
             }
           }
         }
-      }
-      if ((currentY >= pc.y) && (currentY < pc.y + 8))
+      }*/
+      if ((currentY > pc.y - 16) && (currentY <= pc.y))
       {
-        const uint8_t *data = getTileData(pc.icon, currentY - pc.y);
+        const uint8_t *data = _image_renegade_data + (currentY - pc.y + 15) * 32 *2 + pc.frame * 8 * 2;
         for (int i = 0; i < 8; i++)
         {
-          if ((data[i * 2] != 255) || (data[i * 2 + 1] != 255))
+          int k = i;
+          if (pc.dir == 1)
+            k = 8 - k;
+          if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
           {
-            lineBuffer[(46 + i) * 2] = data[i * 2];
-            lineBuffer[(46 + i) * 2 + 1] = data[i * 2 + 1];
+            lineBuffer[(pc.x - startX + k) * 2] = data[i * 2];
+            lineBuffer[(pc.x - startX + k) * 2 + 1] = data[i * 2 + 1];
           }
         }
-      }*/
+      }
     }
-/*    if (state == STATE_TALKING)
-    {
-      portrait.draw(lines, lineBuffer);
-      nameMessage.draw(lines, lineBuffer);
-      if (dialogContext.message)
-        bottomMessage.draw(lines, lineBuffer);
-      if (dialogContext.choose)
-        choice.draw(lines, lineBuffer);
-    }
-    else if (state == STATE_MENU)
+/*    if (state == STATE_MENU)
     {
       choice.draw(lines, lineBuffer);
     }*/
@@ -199,6 +214,7 @@ const uint8_t *World::getTileData(int tile, int y)
   return _image_tileset_data + (x + y * (8 * 8 )) * 2;
 }
 
+int t = 0;
 void setup() {
   arcadeInit();
   display.begin();
@@ -218,4 +234,31 @@ void setup() {
 void loop() {
   world.update();
   world.draw();
+  t = (t + 1) % 4;
+  if (t == 0){
+    uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+    if ((joyDir & TAJoystickUp) && (pc.y - 16 > 0))
+      pc.y--;
+    else if ((joyDir & TAJoystickDown) && (pc.y + 1 < world.currentArea->ySize * 8))
+      pc.y++;
+    if (joyDir & TAJoystickLeft)
+    {
+      if (pc.x > 0)
+        pc.x--;
+      pc.dir = 1;
+    }
+    else if (joyDir & TAJoystickRight)
+    {
+      if (pc.x + 9 < world.currentArea->xSize * 8)
+        pc.x++;
+      pc.dir = 0;
+    }
+    pc.frame = (pc.frame + 1) % 4;
+  }
+  unsigned long oldTime = lastTime;
+  lastTime = millis();
+  if ((lastTime > oldTime) && (lastTime - oldTime < 33))
+  {
+    delay(33 - (lastTime - oldTime));
+  }
 }
