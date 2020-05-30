@@ -19,6 +19,6 @@ Market street tileset is based on "Brawler Asset Tile Set 'Market Street' SMS"
 by chasersgaming. It has been converted to a lower resolution by Dennis Payne.
 https://opengameart.org/content/brawler-asset-tile-set-market-street-sms
 
-Renegade sprite is base on "Brawler Asset Character 'Renegade' SMS" by
+Renegade and mutant sprites are based on "Brawler Asset Character 'Renegade' SMS" by
 chasersgaming. It has been converted to a lower resolution by Dennis Payne.
 https://opengameart.org/content/brawler-asset-character-renegade-sms

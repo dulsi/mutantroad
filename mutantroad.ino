@@ -26,6 +26,25 @@ class Area
     const uint8_t *data;
 };
 
+const uint8_t tilesetCollision[] = {
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 0,
+  1, 1, 1, 1, 1, 1, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 0, 0, 1, 1, 1, 1, 1,
+  1, 0, 1, 1, 1, 1, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 1
+};
+
 const uint8_t roadMap[] = {
 2,3,4,4,5,5,5,5,5,5,5,5,6,7,8,8,8,4,4,5,5,5,5,5,5,5,5,6,5,5,5,5,5,5,5,5,6,8,8,8,8,8,8,8,8,8,5,9,5,
 10,11,4,4,5,5,5,5,5,5,5,5,6,7,8,8,8,4,4,5,5,5,5,5,5,5,5,6,5,5,5,5,5,5,5,5,5,8,8,8,8,8,8,8,8,8,5,17,5,
@@ -34,9 +53,9 @@ const uint8_t roadMap[] = {
 23,24,25,4,5,26,27,28,29,26,5,26,30,7,31,32,33,34,4,5,26,35,26,5,26,5,26,6,5,26,5,26,5,26,5,26,6,36,37,37,38,8,39,40,41,42,43,44,45,
 46,47,33,34,5,48,5,49,50,51,52,53,54,7,55,56,57,58,4,5,48,54,49,50,51,52,53,6,5,5,5,5,61,19,19,19,62,63,64,64,65,8,66,67,68,69,70,71,6,
 72,73,57,58,5,74,45,75,5,76,77,78,6,79,80,80,81,82,4,5,74,45,83,5,18,19,20,6,5,5,45,5,85,37,37,37,86,79,80,80,80,80,87,88,89,87,88,89,80,
-112,104,92,82,5,93,5,94,5,95,96,97,6,98,33,99,80,80,100,5,93,5,101,5,63,64,65,6,5,5,5,5,102,64,64,64,103,98,80,80,80,80,80,80,80,80,80,80,80,
-112,112,90,105,106,107,107,107,107,107,107,107,107,80,57,58,114,108,109,110,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,111,108,108,108,108,108,108,108,108,108,108,
-112,112,90,90,113,114,114,114,114,114,114,114,114,114,73,82,90,90,90,113,108,108,108,108,108,108,108,108,114,114,114,114,114,114,114,114,114,114,108,117,90,90,90,90,90,90,90,90,90,
+112,104,92,82,5,93,5,94,5,95,96,97,6,98,80,80,80,80,100,5,93,5,101,5,63,64,65,6,5,5,5,5,102,64,64,64,103,98,80,80,80,80,80,80,80,80,80,80,80,
+112,112,90,105,106,107,107,107,107,107,107,107,107,80,111,108,114,108,109,110,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,80,111,108,108,108,108,108,108,108,108,108,108,
+112,112,90,90,113,114,114,114,114,114,114,114,114,114,108,117,90,90,90,113,108,108,108,108,108,108,108,108,114,114,114,114,114,114,114,114,114,114,108,117,90,90,90,90,90,90,90,90,90,
 118,118,118,118,118,118,118,119,118,118,118,118,118,121,120,118,118,118,118,121,121,121,119,121,121,121,121,121,121,121,121,121,121,118,118,118,118,118,118,118,118,118,118,118,118,118,118,118,118,
 122,122,122,122,122,122,122,122,122,122,122,122,122,123,124,125,126,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122
 };
@@ -88,13 +107,14 @@ const uint8_t *Mob::getFrame(int currentY)
       break;
     case OBJTYPE_MUTANT:
 //      if (frame < 8)
-        return _image_mutant_data + (currentY - y + 15) * 32 *2 + frame * 8 * 2;
+        return _image_mutant_data + (currentY - y + 15) * 64 *2 + frame * 8 * 2;
 /*      else
         return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - 8) * 12 * 2;*/
       break;
     default:
       break;
   }
+  return NULL;
 }
 
 uint8_t Mob::getFrameSize()
@@ -111,6 +131,7 @@ uint8_t Mob::getFrameSize()
     default:
       break;
   }
+  return 0;
 }
 
 #define MAX_MOBS 10
@@ -126,6 +147,7 @@ class World
     void init();
     void update();
     void draw();
+    uint8_t getCollision(int xWhere, int yWhere);
     uint8_t getTile(int x, int y);
     const uint8_t *getTileData(int tile, int y);
 
@@ -184,19 +206,104 @@ void World::update()
             if (mobs[i].frame >= 4)
               mobs[i].frame = 0;
             if ((joyDir & TAJoystickUp) && (mobs[i].y - 16 > 0))
-              mobs[i].y--;
+            {
+              if ((mobs[i].y % 8) == 0)
+              {
+                int yWhere = mobs[i].y / 8;
+                int xWhere = mobs[i].x / 8;
+                int xMod = mobs[i].x % 8;
+                bool col1 = getCollision(xWhere, yWhere - 1);
+                if (xMod == 0)
+                {
+                  if (col1 == 0)
+                    mobs[i].y--;
+                }
+                else
+                {
+                  bool col2 = getCollision(xWhere + 1, yWhere - 1);
+                  if ((col1 == 0) && (col2 == 0))
+                    mobs[i].y--;
+                  else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
+                  {
+                    mobs[i].y--;
+                    mobs[i].x--;
+                  }
+                  else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
+                  {
+                    mobs[i].y--;
+                    mobs[i].x++;
+                  }
+                }
+              }
+              else
+                mobs[i].y--;
+            }
             else if ((joyDir & TAJoystickDown) && (mobs[i].y + 1 < world.currentArea->ySize * 8))
-              mobs[i].y++;
+            {
+              if ((mobs[i].y % 8) == 7)
+              {
+                int yWhere = mobs[i].y / 8;
+                int xWhere = mobs[i].x / 8;
+                int xMod = mobs[i].x % 8;
+                bool col1 = getCollision(xWhere, yWhere + 1);
+                if (xMod == 0)
+                {
+                  if (col1 == 0)
+                    mobs[i].y++;
+                }
+                else
+                {
+                  bool col2 = getCollision(xWhere + 1, yWhere + 1);
+                  if ((col1 == 0) && (col2 == 0))
+                    mobs[i].y++;
+                  else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
+                  {
+                    mobs[i].y++;
+                    mobs[i].x--;
+                  }
+                  else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
+                  {
+                    mobs[i].y++;
+                    mobs[i].x++;
+                  }
+                }
+              }
+              else
+                mobs[i].y++;
+            }
             if (joyDir & TAJoystickLeft)
             {
               if (mobs[i].x > 0)
-                mobs[i].x--;
+              {
+                if ((mobs[i].x % 8) == 0)
+                {
+                  int yWhere = mobs[i].y / 8;
+                  int xWhere = mobs[i].x / 8;
+                  bool col1 = getCollision(xWhere - 1, yWhere);
+                  if (col1 == 0)
+                    mobs[i].x--;
+                }
+                else
+                  mobs[i].x--;
+              }
               mobs[i].dir = 1;
             }
             else if (joyDir & TAJoystickRight)
             {
               if (mobs[i].x + 9 < world.currentArea->xSize * 8)
-                mobs[i].x++;
+              {
+                if ((mobs[i].x % 8) == 0)
+                {
+                  int yWhere = mobs[i].y / 8;
+                  int xWhere = mobs[i].x / 8;
+                  int yMod = mobs[i].y % 8;
+                  bool col1 = getCollision(xWhere + 1, yWhere);
+                  if (col1 == 0)
+                    mobs[i].x++;
+                }
+                else
+                  mobs[i].x++;
+              }
               mobs[i].dir = 0;
             }
             if (tick == 0)
@@ -382,6 +489,11 @@ void World::draw()
     display.writeBuffer(lineBuffer,96 * 2);
   }
   display.endTransfer();
+}
+
+uint8_t World::getCollision(int xWhere, int yWhere)
+{
+  return tilesetCollision[currentArea->data[xWhere + (yWhere * currentArea->xSize)] - 1];
 }
 
 uint8_t World::getTile(int x, int y)
