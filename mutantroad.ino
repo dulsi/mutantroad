@@ -428,7 +428,7 @@ void World::update()
                   x2 = mobs[i].x + 7;
                 }*/
                 bool dirChange = true;
-                int joyDir = 0;
+                uint8_t joyDir = 0;
                 if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
                 {
                   dirChange = false;
@@ -453,6 +453,28 @@ void World::update()
                   if (joyDir & TAJoystickRight)
                     mobs[i].dir = 0;
                 }
+                break;
+              }
+              case MUTANTSTATE_BACKOFF:
+              {
+                uint8_t joyDir = 0;
+                if ((mobs[0].x <= mobs[i].x) && (mobs[i].x - mobs[0].x < 100))
+                {
+                  joyDir |= TAJoystickRight;
+                }
+                else if ((mobs[0].x > mobs[i].x) && (mobs[0].x - mobs[i].x < 100))
+                {
+                  joyDir |= TAJoystickLeft;
+                }
+                if (mobs[0].y > mobs[i].y)
+                    joyDir |= TAJoystickDown;
+                else if (mobs[0].y < mobs[i].y)
+                    joyDir |= TAJoystickUp;
+                tryMove(i, joyDir);
+                if (mobs[0].x <= mobs[i].x)
+                  mobs[i].dir = 1;
+                else if (mobs[0].x > mobs[i].x)
+                  mobs[i].dir = 0;
                 break;
               }
               default:
