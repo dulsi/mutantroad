@@ -84,7 +84,7 @@ int pause = 0;
 #define PAUSE_HURT 16
 #define PAUSE_GROUND 100
 
-#define PLAYER_HEALTH 6
+#define PLAYER_HEALTH 8
 
 #define MUTANTSTATE_APPROACH 0
 #define MUTANTSTATE_ATTACK 1
@@ -679,7 +679,7 @@ void World::draw()
         }
       }
     }
-    if ((state == STATE_GAMEOVER) && (lines > 28) && (lines < 42))
+    if ((state == STATE_GAMEOVER) && (lines > 28) && (lines < 41))
     {
       const uint8_t *data = _image_game_over_data + (lines - 29) * 89 *2;
       for (int i = 0; i < 89; i++)
@@ -688,6 +688,37 @@ void World::draw()
         {
           lineBuffer[(2 + i) * 2] = data[i * 2];
           lineBuffer[(2 + i) * 2 + 1] = data[i * 2 + 1];
+        }
+      }
+    }
+    else if ((state == STATE_GAME) && (lines > 2) && (lines < 11))
+    {
+      int where = 4;
+      uint8_t health = mobs[0].health;
+      while (health >= 4)
+      {
+        const uint8_t *data = _image_heart_data + (lines - 3) * 32 * 2 + 24 * 2;
+        for (int i = 0; i < 8; i++)
+        {
+          if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
+          {
+            lineBuffer[(where + i) * 2] = data[i * 2];
+            lineBuffer[(where + i) * 2 + 1] = data[i * 2 + 1];
+          }
+        }
+        where += 8;
+        health -= 4;
+      }
+      if (health > 0)
+      {
+        const uint8_t *data = _image_heart_data + (lines - 3) * 32 * 2 + (health -1) * 8 * 2;
+        for (int i = 0; i < 8; i++)
+        {
+          if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
+          {
+            lineBuffer[(where + i) * 2] = data[i * 2];
+            lineBuffer[(where + i) * 2 + 1] = data[i * 2 + 1];
+          }
         }
       }
     }
