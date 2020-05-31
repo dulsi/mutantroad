@@ -213,10 +213,12 @@ void World::init()
   mobs[0].objtype = OBJTYPE_PLAYER;
   mobs[0].x = 0;
   mobs[0].y = 78;
+  mobs[0].dir = 0;
   mobs[0].health = PLAYER_HEALTH;
   mobs[1].objtype = OBJTYPE_MUTANT;
   mobs[1].x = 50;
   mobs[1].y = 78;
+  mobs[1].dir = 0;
   mobs[1].health = 3;
   mobs[1].state = MUTANTSTATE_APPROACH;
   mobs[1].data = MUTANTSTATEDATA_APPROACH;
