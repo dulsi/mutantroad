@@ -71,15 +71,24 @@ const Area road(49, 12, roadMap);
 #define PLFRAME_GROUND 11
 #define PLFRAME_PUNCH 12
 
+#define PAUSE_PUNCH 16
 #define PAUSE_HURT 16
 #define PAUSE_GROUND 100
 
 #define PLAYER_HEALTH 6
 
+#define MUTANTSTATE_APPROACH 0
+#define MUTANTSTATE_ATTACK 1
+#define MUTANTSTATE_BACKOFF 2
+
+#define MUTANTSTATEDATA_APPROACH 10
+#define MUTANTSTATEDATA_ATTACK 5
+#define MUTANTSTATEDATA_BACKOFF 15
+
 class Mob
 {
   public:
-    Mob() : objtype(OBJTYPE_NONE), x(0), y(0), dir(0), frame(0), pause(0), health(0), knockdown(0) {}
+    Mob() : objtype(OBJTYPE_NONE), x(0), y(0), dir(0), frame(0), pause(0), health(0), knockdown(0), state(0), data(0) {}
 
     int getAdjustedX();
     const uint8_t *getFrame(int currentY);
@@ -92,6 +101,8 @@ class Mob
     uint8_t pause;
     uint8_t health;
     uint8_t knockdown;
+    uint8_t state;
+    uint8_t data;
 };
 
 int Mob::getAdjustedX()
@@ -136,8 +147,8 @@ const uint8_t *Mob::getFrame(int currentY)
         return _image_mutant3_data + (currentY - y + 15) * 12 *2;
       else if (frame == PLFRAME_GROUND)
         return _image_mutant4_data + (currentY - y + 15) * 16 *2;
-/*      else
-        return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - PLFRAME_PUNCH) * 12 * 2;*/
+      else
+        return _image_mutant2_data + (currentY - y + 15) * 24 *2 + (frame - PLFRAME_PUNCH) * 12 * 2;
       break;
     default:
       break;
@@ -197,6 +208,8 @@ void World::init()
   mobs[1].x = 50;
   mobs[1].y = 78;
   mobs[1].health = 3;
+  mobs[1].state = MUTANTSTATE_APPROACH;
+  mobs[1].data = MUTANTSTATEDATA_APPROACH;
 }
 
 void World::update()
@@ -207,34 +220,44 @@ void World::update()
     {
       case OBJTYPE_PLAYER:
         tick = (tick + 1) % 8;
-        if ((tick == 0) || (tick == 4))
+        if (mobs[i].pause)
         {
-          uint8_t btn = checkButton(TAButton1 | TAButton2);
-          uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-          if (mobs[i].pause)
+          mobs[i].pause--;
+          if (mobs[i].pause == 0)
           {
-            mobs[i].pause--;
-            if (mobs[i].pause == 0)
+            if (mobs[i].frame == PLFRAME_PUNCH)
+              mobs[i].frame = 2;
+            else if (mobs[i].frame == PLFRAME_FALLING)
             {
-              if (mobs[i].frame == PLFRAME_PUNCH)
-                mobs[i].frame = 2;
-              else
-                mobs[i].frame = 0;
+              mobs[i].frame = PLFRAME_GROUND;
+              mobs[i].pause = PAUSE_GROUND;
             }
+            else if (mobs[i].frame == PLFRAME_GROUND)
+            {
+              mobs[i].frame = PLFRAME_GETUP;
+              mobs[i].pause = PAUSE_HURT;
+            }
+            else
+              mobs[i].frame = 0;
           }
-          else
+        }
+        else
+        {
+          if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
           {
-            if (mobs[i].knockdown > 0)
-            {
-              mobs[i].knockdown--;
-              if ((mobs[i].knockdown & 0x0F) == 0)
-                mobs[i].knockdown = 0;
-            }
+            mobs[i].knockdown--;
+            if ((mobs[i].knockdown & 0x0F) == 7)
+              mobs[i].knockdown = 0;
+          }
+          if ((tick == 0) || (tick == 4))
+          {
+            uint8_t btn = checkButton(TAButton1 | TAButton2);
+            uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
             if (btn > 0)
             {
               if (btn & TAButton1)
               {
-                mobs[i].pause = 4;
+                mobs[i].pause = PAUSE_PUNCH;
                 if (mobs[i].frame >= 2)
                   mobs[i].frame = PLFRAME_PUNCH + 1;
                 else
@@ -260,14 +283,17 @@ void World::update()
                   {
                     if ((mobs[mobidx].x <= x2) && (mobs[mobidx].x + 8 >= x1))
                     {
-                      if ((mobs[mobidx].frame != PLFRAME_HURT) && (mobs[mobidx].frame != PLFRAME_FALLING) && (mobs[mobidx].frame != PLFRAME_GROUND))
+                      if ((mobs[mobidx].frame != PLFRAME_HURT) && (mobs[mobidx].frame != PLFRAME_FALLING) && (mobs[mobidx].frame != PLFRAME_GROUND) && (mobs[mobidx].frame != PLFRAME_GETUP))
                       {
                         mobs[mobidx].frame = PLFRAME_HURT;
                         mobs[mobidx].pause = PAUSE_HURT;
                         mobs[mobidx].health--;
                         mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
                         if (mobs[mobidx].knockdown == 0x3F)
+                        {
                           mobs[mobidx].frame = PLFRAME_FALLING;
+                          mobs[mobidx].knockdown = 0;
+                        }
                       }
                     }
                   }
@@ -425,8 +451,91 @@ void World::update()
           if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
           {
             mobs[i].knockdown--;
-            if ((mobs[i].knockdown & 0x0F) == 8)
+            if ((mobs[i].knockdown & 0x0F) == 7)
               mobs[i].knockdown = 0;
+          }
+          if (tick % 8 == 0)
+          {
+            switch(mobs[i].state)
+            {
+              case MUTANTSTATE_ATTACK:
+              {
+                int x1,x2;
+                if (mobs[i].dir == 1)
+                {
+                  x1 = mobs[i].x - 2;
+                  x2 = mobs[i].x + 1;
+                }
+                else
+                {
+                  x1 = mobs[i].x + 10;
+                  x2 = mobs[i].x + 7;
+                }
+                if ((mobs[0].y >= mobs[i].y - 1) && (mobs[0].y <= mobs[i].y + 1))
+                {
+                  if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
+                  {
+                    if ((mobs[0].frame != PLFRAME_HURT) && (mobs[0].frame != PLFRAME_FALLING) && (mobs[0].frame != PLFRAME_GROUND) && (mobs[0].frame != PLFRAME_GETUP))
+                    {
+                      mobs[i].state = MUTANTSTATE_ATTACK;
+                      mobs[i].data = MUTANTSTATEDATA_ATTACK;
+                      mobs[i].pause = PAUSE_PUNCH;
+                      if (mobs[i].frame >= 2)
+                        mobs[i].frame = PLFRAME_PUNCH + 1;
+                      else
+                        mobs[i].frame = PLFRAME_PUNCH;
+                      mobs[0].frame = PLFRAME_HURT;
+                      mobs[0].pause = PAUSE_HURT;
+                      mobs[0].health--;
+                      mobs[0].knockdown = (mobs[0].knockdown + 16) | 0x0F;
+                      if (mobs[0].knockdown == 0x3F)
+                      {
+                        mobs[0].frame = PLFRAME_FALLING;
+                        mobs[0].knockdown = 0;
+                        mobs[i].state = MUTANTSTATE_BACKOFF;
+                        mobs[i].data = MUTANTSTATEDATA_BACKOFF;
+                      }
+                    }
+                  }
+                  else
+                  {
+                    if (mobs[i].frame < 4)
+                    {
+                      mobs[i].frame = 4;
+                    }
+                    else
+                    {
+                      mobs[i].frame++;
+                      if (mobs[i].frame == 8)
+                        mobs[i].frame = 4;
+                    }
+                  }
+                }
+                break;
+              }
+              default:
+                break;
+            }
+            mobs[i].data--;
+            if (mobs[i].data == 0)
+            {
+              switch(mobs[i].state)
+              {
+                case MUTANTSTATE_ATTACK:
+                  mobs[i].state = MUTANTSTATE_APPROACH;
+                  mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                  break;
+                case MUTANTSTATE_APPROACH:
+                  mobs[i].state = MUTANTSTATE_ATTACK;
+                  mobs[i].data = MUTANTSTATEDATA_ATTACK;
+                  break;
+                case MUTANTSTATE_BACKOFF:
+                default:
+                  mobs[i].state = MUTANTSTATE_APPROACH;
+                  mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                  break;
+              }
+            }
           }
         }
         break;
