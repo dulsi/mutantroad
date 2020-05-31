@@ -18,13 +18,33 @@
 TinyScreen display = TinyScreen(TinyScreenPlus);
 unsigned long lastTime;
 
+#define MAX_FLAGS 50
+
+#define CMD_SPAWNMUTANT 1
+
+class AreaScript
+{
+  public:
+    AreaScript(int x1, uint8_t f, uint8_t c, uint8_t a1, int a2, int a3) : x(x1), flag(f), cmd(c), arg1(a1), arg2(a2), arg3(a3) {}
+
+    bool run() const;
+
+    int x;
+    uint8_t flag;
+    uint8_t cmd;
+    uint8_t arg1;
+    int arg2;
+    int arg3;
+};
+
 class Area
 {
   public:
-    Area(uint8_t x, uint8_t y, const uint8_t *d) : xSize(x), ySize(y), data(d) {}
+    Area(uint8_t x, uint8_t y, const uint8_t *d, const AreaScript *s) : xSize(x), ySize(y), data(d), script(s) {}
 
     uint8_t xSize, ySize;
     const uint8_t *data;
+    const AreaScript *script;
 };
 
 const uint8_t tilesetCollision[] = {
@@ -46,6 +66,11 @@ const uint8_t tilesetCollision[] = {
   0, 0, 0, 0, 0, 0, 1, 1
 };
 
+const AreaScript roadScript[] = {
+  AreaScript(100, 0, CMD_SPAWNMUTANT, 0, 100, 80),
+  AreaScript(115, 1, CMD_SPAWNMUTANT, 0, 110, 70),
+  AreaScript(0, 0, 0, 0, 0, 0),
+};
 const uint8_t roadMap[] = {
 2,3,4,4,5,5,5,5,5,5,5,5,6,7,8,8,8,4,4,5,5,5,5,5,5,5,5,6,5,5,5,5,5,5,5,5,6,8,8,8,8,8,8,8,8,8,5,9,5,
 10,11,4,4,5,5,5,5,5,5,5,5,6,7,8,8,8,4,4,5,5,5,5,5,5,5,5,6,5,5,5,5,5,5,5,5,5,8,8,8,8,8,8,8,8,8,5,17,5,
@@ -60,7 +85,7 @@ const uint8_t roadMap[] = {
 118,118,118,118,118,118,118,119,118,118,118,118,118,121,120,118,118,118,118,121,121,121,119,121,121,121,121,121,121,121,121,121,121,118,118,118,118,118,118,118,118,118,118,118,118,118,118,118,118,
 122,122,122,122,122,122,122,122,122,122,122,122,122,123,124,125,126,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122
 };
-const Area road(49, 12, roadMap);
+const Area road(49, 12, roadMap, roadScript);
 
 #define STATE_GAME 1
 #define STATE_GAMEOVER 2
@@ -193,7 +218,7 @@ uint8_t order[MAX_MOBS];
 class World
 {
   public:
-    World(const Area *cArea) : currentArea(cArea), tick(0) { init(); }
+    World(const Area *cArea) : currentArea(cArea), tick(0), scriptStart(0) { init(); }
     void init();
     void update();
     void draw();
@@ -204,6 +229,8 @@ class World
 
     const Area *currentArea;
     int tick;
+    int scriptStart;
+    bool flags[MAX_FLAGS];
 };
 
 World world(&road);
@@ -216,12 +243,11 @@ void World::init()
   mobs[0].dir = 0;
   mobs[0].health = PLAYER_HEALTH;
   mobs[1].objtype = OBJTYPE_MUTANT;
-  mobs[1].x = 50;
-  mobs[1].y = 78;
-  mobs[1].dir = 0;
-  mobs[1].health = 3;
-  mobs[1].state = MUTANTSTATE_APPROACH;
-  mobs[1].data = MUTANTSTATEDATA_APPROACH;
+  for (int i = 1; i < MAX_MOBS; i++)
+    mobs[i].objtype = OBJTYPE_NONE;
+  for (int i = 0; i < MAX_FLAGS; i++)
+    flags[i] = false;
+  scriptStart = 0;
 }
 
 void World::update()
@@ -361,8 +387,13 @@ void World::update()
               }
               else if (mobs[i].frame == PLFRAME_GROUND)
               {
-                mobs[i].frame = PLFRAME_GETUP;
-                mobs[i].pause = PAUSE_HURT;
+                if (mobs[i].health == 0)
+                  mobs[i].objtype = OBJTYPE_NONE;
+                else
+                {
+                  mobs[i].frame = PLFRAME_GETUP;
+                  mobs[i].pause = PAUSE_HURT;
+                }
               }
               else
                 mobs[i].frame = 0;
@@ -537,7 +568,7 @@ void World::update()
       uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
       if (btn & TAButton1)
       {
-        world.init();
+        init();
         state = STATE_GAME;
       }
     }
@@ -559,6 +590,11 @@ void World::draw()
     startY = 0;
   else if (startY + 64 >= currentArea->ySize * 8)
     startY = currentArea->ySize * 8 - 64;
+  for (int i = scriptStart; (currentArea->script[i].x != 0) && (currentArea->script[i].x <= startX + 96); i++)
+  {
+    if (currentArea->script[i].run() && (i == scriptStart))
+      scriptStart++;
+  }
   display.goTo(0,0);
   display.startData();
 
@@ -851,6 +887,35 @@ void World::tryMove(int i, uint8_t joyDir)
   }
   if (tick == 0)
     mobs[i].frame = (mobs[i].frame + 1) % 4;
+}
+
+bool AreaScript::run() const
+{
+  if (world.flags[flag] == true)
+    return true;
+  switch(cmd)
+  {
+    case CMD_SPAWNMUTANT:
+      for (int i = 1; i < MAX_MOBS; i++)
+      {
+        if (mobs[i].objtype == OBJTYPE_NONE)
+        {
+          mobs[i].objtype = OBJTYPE_MUTANT;
+          mobs[i].x = arg2;
+          mobs[i].y = arg3;
+          mobs[i].dir = ((mobs[i].x > mobs[0].x) ? 1 : 0);
+          mobs[i].health = 3;
+          mobs[i].state = MUTANTSTATE_APPROACH;
+          mobs[i].data = MUTANTSTATEDATA_APPROACH;
+          world.flags[flag] = true;
+          return true;
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  return false;
 }
 
 void setup()
