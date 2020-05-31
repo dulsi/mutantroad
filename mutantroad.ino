@@ -5,6 +5,7 @@
 #include "tileset.h"
 #include "renegade.h"
 #include "mutant.h"
+#include "ui.h"
 
 
 #ifdef TINYARCADE_CONFIG
@@ -60,6 +61,14 @@ const uint8_t roadMap[] = {
 122,122,122,122,122,122,122,122,122,122,122,122,122,123,124,125,126,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122,122
 };
 const Area road(49, 12, roadMap);
+
+#define STATE_GAME 1
+#define STATE_GAMEOVER 2
+
+#define PAUSE_GAMEOVER 100
+
+int state = STATE_GAME;
+int pause = 0;
 
 #define OBJTYPE_NONE 0
 #define OBJTYPE_PLAYER 1
@@ -215,296 +224,320 @@ void World::init()
 
 void World::update()
 {
-  for (int i = 0; i < MAX_MOBS; i++)
+  if (state == STATE_GAME)
   {
-    switch(mobs[i].objtype)
+    for (int i = 0; i < MAX_MOBS; i++)
     {
-      case OBJTYPE_PLAYER:
-        tick = (tick + 1) % 8;
-        if (mobs[i].pause)
-        {
-          mobs[i].pause--;
-          if (mobs[i].pause == 0)
+      switch(mobs[i].objtype)
+      {
+        case OBJTYPE_PLAYER:
+          tick = (tick + 1) % 8;
+          if (mobs[i].pause)
           {
-            if (mobs[i].frame == PLFRAME_PUNCH)
-              mobs[i].frame = 2;
-            else if (mobs[i].frame == PLFRAME_FALLING)
+            mobs[i].pause--;
+            if (mobs[i].pause == 0)
             {
-              mobs[i].frame = PLFRAME_GROUND;
-              mobs[i].pause = PAUSE_GROUND;
-            }
-            else if (mobs[i].frame == PLFRAME_GROUND)
-            {
-              mobs[i].frame = PLFRAME_GETUP;
-              mobs[i].pause = PAUSE_HURT;
-            }
-            else
-              mobs[i].frame = 0;
-          }
-        }
-        else
-        {
-          if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
-          {
-            mobs[i].knockdown--;
-            if ((mobs[i].knockdown & 0x0F) == 7)
-              mobs[i].knockdown = 0;
-          }
-          if ((tick == 0) || (tick == 4))
-          {
-            uint8_t btn = checkButton(TAButton1 | TAButton2);
-            uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
-            if (btn > 0)
-            {
-              if (btn & TAButton1)
+              if (mobs[i].frame == PLFRAME_PUNCH)
+                mobs[i].frame = 2;
+              else if (mobs[i].frame == PLFRAME_FALLING)
               {
-                mobs[i].pause = PAUSE_PUNCH;
-                if (mobs[i].frame >= 2)
-                  mobs[i].frame = PLFRAME_PUNCH + 1;
-                else
-                  mobs[i].frame = PLFRAME_PUNCH;
-                int x1,x2;
-                if (mobs[i].dir == 1)
+                mobs[i].frame = PLFRAME_GROUND;
+                mobs[i].pause = PAUSE_GROUND;
+              }
+              else if (mobs[i].frame == PLFRAME_GROUND)
+              {
+                if (mobs[i].health == 0)
                 {
-                  x1 = mobs[i].x - 2;
-                  x2 = mobs[i].x + 1;
+                  mobs[i].pause = PAUSE_GAMEOVER;
+                  state = STATE_GAMEOVER;
                 }
                 else
                 {
-                  x1 = mobs[i].x + 7;
-                  x2 = mobs[i].x + 10;
+                  mobs[i].frame = PLFRAME_GETUP;
+                  mobs[i].pause = PAUSE_HURT;
                 }
-                for (int mobidx = 0; mobidx < MAX_MOBS; mobidx++)
+              }
+              else
+                mobs[i].frame = 0;
+            }
+          }
+          else
+          {
+            if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
+            {
+              mobs[i].knockdown--;
+              if ((mobs[i].knockdown & 0x0F) == 7)
+                mobs[i].knockdown = 0;
+            }
+            if ((tick == 0) || (tick == 4))
+            {
+              uint8_t btn = checkButton(TAButton1 | TAButton2);
+              uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+              if (btn > 0)
+              {
+                if (btn & TAButton1)
                 {
-                  if (mobidx == i)
-                    continue;
-                  if (mobs[mobidx].objtype == OBJTYPE_NONE)
-                    continue;
-                  if ((mobs[mobidx].y >= mobs[i].y - 1) && (mobs[mobidx].y <= mobs[i].y + 1))
+                  mobs[i].pause = PAUSE_PUNCH;
+                  if (mobs[i].frame >= 2)
+                    mobs[i].frame = PLFRAME_PUNCH + 1;
+                  else
+                    mobs[i].frame = PLFRAME_PUNCH;
+                  int x1,x2;
+                  if (mobs[i].dir == 1)
                   {
-                    if ((mobs[mobidx].x <= x2) && (mobs[mobidx].x + 8 >= x1))
+                    x1 = mobs[i].x - 2;
+                    x2 = mobs[i].x + 1;
+                  }
+                  else
+                  {
+                    x1 = mobs[i].x + 7;
+                    x2 = mobs[i].x + 10;
+                  }
+                  for (int mobidx = 0; mobidx < MAX_MOBS; mobidx++)
+                  {
+                    if (mobidx == i)
+                      continue;
+                    if (mobs[mobidx].objtype == OBJTYPE_NONE)
+                      continue;
+                    if ((mobs[mobidx].y >= mobs[i].y - 1) && (mobs[mobidx].y <= mobs[i].y + 1))
                     {
-                      if ((mobs[mobidx].frame != PLFRAME_HURT) && (mobs[mobidx].frame != PLFRAME_FALLING) && (mobs[mobidx].frame != PLFRAME_GROUND) && (mobs[mobidx].frame != PLFRAME_GETUP))
+                      if ((mobs[mobidx].x <= x2) && (mobs[mobidx].x + 8 >= x1))
                       {
-                        mobs[mobidx].frame = PLFRAME_HURT;
-                        mobs[mobidx].pause = PAUSE_HURT;
-                        mobs[mobidx].health--;
-                        mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
-                        if (mobs[mobidx].knockdown == 0x3F)
+                        if ((mobs[mobidx].frame != PLFRAME_HURT) && (mobs[mobidx].frame != PLFRAME_FALLING) && (mobs[mobidx].frame != PLFRAME_GROUND) && (mobs[mobidx].frame != PLFRAME_GETUP))
                         {
-                          mobs[mobidx].frame = PLFRAME_FALLING;
-                          mobs[mobidx].knockdown = 0;
+                          mobs[mobidx].frame = PLFRAME_HURT;
+                          mobs[mobidx].pause = PAUSE_HURT;
+                          mobs[mobidx].health--;
+                          mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
+                          if (mobs[mobidx].knockdown == 0x3F)
+                          {
+                            mobs[mobidx].frame = PLFRAME_FALLING;
+                            mobs[mobidx].knockdown = 0;
+                          }
                         }
                       }
                     }
                   }
                 }
               }
-            }
-            else if (joyDir > 0)
-            {
-              tryMove(i, joyDir);
-              if (joyDir & TAJoystickLeft)
-                mobs[i].dir = 1;
-              if (joyDir & TAJoystickRight)
-                mobs[i].dir = 0;
-            }
-            else if (tick == 0)
-            {
-              if (mobs[i].frame < 4)
+              else if (joyDir > 0)
               {
-                mobs[i].frame = 4;
+                tryMove(i, joyDir);
+                if (joyDir & TAJoystickLeft)
+                  mobs[i].dir = 1;
+                if (joyDir & TAJoystickRight)
+                  mobs[i].dir = 0;
               }
-              else
+              else if (tick == 0)
               {
-                mobs[i].frame++;
-                if (mobs[i].frame == 8)
-                  mobs[i].frame = 4;
-              }
-            }
-          }
-        }
-        break;
-      case OBJTYPE_MUTANT:
-        if (mobs[i].pause)
-        {
-          mobs[i].pause--;
-          if (mobs[i].pause == 0)
-          {
-            if (mobs[i].frame == PLFRAME_PUNCH)
-              mobs[i].frame = 2;
-            else if (mobs[i].frame == PLFRAME_FALLING)
-            {
-              mobs[i].frame = PLFRAME_GROUND;
-              mobs[i].pause = PAUSE_GROUND;
-            }
-            else if (mobs[i].frame == PLFRAME_GROUND)
-            {
-              mobs[i].frame = PLFRAME_GETUP;
-              mobs[i].pause = PAUSE_HURT;
-            }
-            else
-              mobs[i].frame = 0;
-          }
-        }
-        else
-        {
-          if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
-          {
-            mobs[i].knockdown--;
-            if ((mobs[i].knockdown & 0x0F) == 7)
-              mobs[i].knockdown = 0;
-          }
-          if (tick % 8 == 0)
-          {
-            switch(mobs[i].state)
-            {
-              case MUTANTSTATE_ATTACK:
-              {
-                int x1,x2;
-                if (mobs[i].dir == 1)
+                if (mobs[i].frame < 4)
                 {
-                  x1 = mobs[i].x - 2;
-                  x2 = mobs[i].x + 1;
+                  mobs[i].frame = 4;
                 }
                 else
                 {
-                  x1 = mobs[i].x + 7;
-                  x2 = mobs[i].x + 10;
+                  mobs[i].frame++;
+                  if (mobs[i].frame == 8)
+                    mobs[i].frame = 4;
                 }
-                if ((mobs[0].y >= mobs[i].y - 1) && (mobs[0].y <= mobs[i].y + 1))
-                {
-                  if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
-                  {
-                    if ((mobs[0].frame != PLFRAME_HURT) && (mobs[0].frame != PLFRAME_FALLING) && (mobs[0].frame != PLFRAME_GROUND) && (mobs[0].frame != PLFRAME_GETUP))
-                    {
-                      mobs[i].state = MUTANTSTATE_ATTACK;
-                      mobs[i].data = MUTANTSTATEDATA_ATTACK;
-                      mobs[i].pause = PAUSE_PUNCH;
-                      if (mobs[i].frame >= 2)
-                        mobs[i].frame = PLFRAME_PUNCH + 1;
-                      else
-                        mobs[i].frame = PLFRAME_PUNCH;
-                      mobs[0].frame = PLFRAME_HURT;
-                      mobs[0].pause = PAUSE_HURT;
-                      mobs[0].health--;
-                      mobs[0].knockdown = (mobs[0].knockdown + 16) | 0x0F;
-                      if (mobs[0].knockdown == 0x3F)
-                      {
-                        mobs[0].frame = PLFRAME_FALLING;
-                        mobs[0].knockdown = 0;
-                        mobs[i].state = MUTANTSTATE_BACKOFF;
-                        mobs[i].data = MUTANTSTATEDATA_BACKOFF;
-                      }
-                    }
-                  }
-                  else
-                  {
-                    if (mobs[i].frame < 4)
-                    {
-                      mobs[i].frame = 4;
-                    }
-                    else
-                    {
-                      mobs[i].frame++;
-                      if (mobs[i].frame == 8)
-                        mobs[i].frame = 4;
-                    }
-                  }
-                }
-                break;
               }
-              case MUTANTSTATE_APPROACH:
-              {
-                int x1,x2;
-//                if (mobs[i].dir == 1)
-                {
-                  x1 = mobs[i].x;
-                  x2 = mobs[i].x + 7;
-                }
-/*                else
-                {
-                  x1 = mobs[i].x + 10;
-                  x2 = mobs[i].x + 7;
-                }*/
-                bool dirChange = true;
-                uint8_t joyDir = 0;
-                if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
-                {
-                  dirChange = false;
-                  if (mobs[i].dir == 1)
-                    joyDir |= TAJoystickRight;
-                  else
-                    joyDir |= TAJoystickLeft;
-                }
-                else if (mobs[0].x > mobs[i].x + 9)
-                    joyDir |= TAJoystickRight;
-                else if (mobs[0].x < mobs[i].x - 1)
-                    joyDir |= TAJoystickLeft;
-                if (mobs[0].y > mobs[i].y)
-                    joyDir |= TAJoystickDown;
-                else if (mobs[0].y < mobs[i].y)
-                    joyDir |= TAJoystickUp;
-                tryMove(i, joyDir);
-                if (dirChange)
-                {
-                  if (joyDir & TAJoystickLeft)
-                    mobs[i].dir = 1;
-                  if (joyDir & TAJoystickRight)
-                    mobs[i].dir = 0;
-                }
-                break;
-              }
-              case MUTANTSTATE_BACKOFF:
-              {
-                uint8_t joyDir = 0;
-                if ((mobs[0].x <= mobs[i].x) && (mobs[i].x - mobs[0].x < 100))
-                {
-                  joyDir |= TAJoystickRight;
-                }
-                else if ((mobs[0].x > mobs[i].x) && (mobs[0].x - mobs[i].x < 100))
-                {
-                  joyDir |= TAJoystickLeft;
-                }
-                if (mobs[0].y > mobs[i].y)
-                    joyDir |= TAJoystickDown;
-                else if (mobs[0].y < mobs[i].y)
-                    joyDir |= TAJoystickUp;
-                tryMove(i, joyDir);
-                if (mobs[0].x <= mobs[i].x)
-                  mobs[i].dir = 1;
-                else if (mobs[0].x > mobs[i].x)
-                  mobs[i].dir = 0;
-                break;
-              }
-              default:
-                break;
             }
-            mobs[i].data--;
-            if (mobs[i].data == 0)
+          }
+          break;
+        case OBJTYPE_MUTANT:
+          if (mobs[i].pause)
+          {
+            mobs[i].pause--;
+            if (mobs[i].pause == 0)
+            {
+              if (mobs[i].frame == PLFRAME_PUNCH)
+                mobs[i].frame = 2;
+              else if (mobs[i].frame == PLFRAME_FALLING)
+              {
+                mobs[i].frame = PLFRAME_GROUND;
+                mobs[i].pause = PAUSE_GROUND;
+              }
+              else if (mobs[i].frame == PLFRAME_GROUND)
+              {
+                mobs[i].frame = PLFRAME_GETUP;
+                mobs[i].pause = PAUSE_HURT;
+              }
+              else
+                mobs[i].frame = 0;
+            }
+          }
+          else
+          {
+            if ((mobs[i].knockdown > 0) && ((tick % 2) == 0))
+            {
+              mobs[i].knockdown--;
+              if ((mobs[i].knockdown & 0x0F) == 7)
+                mobs[i].knockdown = 0;
+            }
+            if (tick % 8 == 0)
             {
               switch(mobs[i].state)
               {
                 case MUTANTSTATE_ATTACK:
-                  mobs[i].state = MUTANTSTATE_APPROACH;
-                  mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                {
+                  int x1,x2;
+                  if (mobs[i].dir == 1)
+                  {
+                    x1 = mobs[i].x - 2;
+                    x2 = mobs[i].x + 1;
+                  }
+                  else
+                  {
+                    x1 = mobs[i].x + 7;
+                    x2 = mobs[i].x + 10;
+                  }
+                  if ((mobs[0].y >= mobs[i].y - 1) && (mobs[0].y <= mobs[i].y + 1))
+                  {
+                    if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
+                    {
+                      if ((mobs[0].frame != PLFRAME_HURT) && (mobs[0].frame != PLFRAME_FALLING) && (mobs[0].frame != PLFRAME_GROUND) && (mobs[0].frame != PLFRAME_GETUP))
+                      {
+                        mobs[i].state = MUTANTSTATE_ATTACK;
+                        mobs[i].data = MUTANTSTATEDATA_ATTACK;
+                        mobs[i].pause = PAUSE_PUNCH;
+                        if (mobs[i].frame >= 2)
+                          mobs[i].frame = PLFRAME_PUNCH + 1;
+                        else
+                          mobs[i].frame = PLFRAME_PUNCH;
+                        mobs[0].frame = PLFRAME_HURT;
+                        mobs[0].pause = PAUSE_HURT;
+                        mobs[0].health--;
+                        mobs[0].knockdown = (mobs[0].knockdown + 16) | 0x0F;
+                        if ((mobs[0].knockdown == 0x3F) || (mobs[0].health == 0))
+                        {
+                          mobs[0].frame = PLFRAME_FALLING;
+                          mobs[0].knockdown = 0;
+                          mobs[i].state = MUTANTSTATE_BACKOFF;
+                          mobs[i].data = MUTANTSTATEDATA_BACKOFF;
+                        }
+                      }
+                    }
+                    else
+                    {
+                      if (mobs[i].frame < 4)
+                      {
+                        mobs[i].frame = 4;
+                      }
+                      else
+                      {
+                        mobs[i].frame++;
+                        if (mobs[i].frame == 8)
+                          mobs[i].frame = 4;
+                      }
+                    }
+                  }
                   break;
+                }
                 case MUTANTSTATE_APPROACH:
-                  mobs[i].state = MUTANTSTATE_ATTACK;
-                  mobs[i].data = MUTANTSTATEDATA_ATTACK;
+                {
+                  int x1,x2;
+                  {
+                    x1 = mobs[i].x;
+                    x2 = mobs[i].x + 7;
+                  }
+                  bool dirChange = true;
+                  uint8_t joyDir = 0;
+                  if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
+                  {
+                    dirChange = false;
+                    if (mobs[i].dir == 1)
+                      joyDir |= TAJoystickRight;
+                    else
+                      joyDir |= TAJoystickLeft;
+                  }
+                  else if (mobs[0].x > mobs[i].x + 9)
+                      joyDir |= TAJoystickRight;
+                  else if (mobs[0].x < mobs[i].x - 1)
+                      joyDir |= TAJoystickLeft;
+                  if (mobs[0].y > mobs[i].y)
+                      joyDir |= TAJoystickDown;
+                  else if (mobs[0].y < mobs[i].y)
+                      joyDir |= TAJoystickUp;
+                  tryMove(i, joyDir);
+                  if (dirChange)
+                  {
+                    if (joyDir & TAJoystickLeft)
+                      mobs[i].dir = 1;
+                    if (joyDir & TAJoystickRight)
+                      mobs[i].dir = 0;
+                  }
                   break;
+                }
                 case MUTANTSTATE_BACKOFF:
-                default:
-                  mobs[i].state = MUTANTSTATE_APPROACH;
-                  mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                {
+                  uint8_t joyDir = 0;
+                  if ((mobs[0].x <= mobs[i].x) && (mobs[i].x - mobs[0].x < 100))
+                  {
+                    joyDir |= TAJoystickRight;
+                  }
+                  else if ((mobs[0].x > mobs[i].x) && (mobs[0].x - mobs[i].x < 100))
+                  {
+                    joyDir |= TAJoystickLeft;
+                  }
+                  if (mobs[0].y > mobs[i].y)
+                      joyDir |= TAJoystickDown;
+                  else if (mobs[0].y < mobs[i].y)
+                      joyDir |= TAJoystickUp;
+                  tryMove(i, joyDir);
+                  if (mobs[0].x <= mobs[i].x)
+                    mobs[i].dir = 1;
+                  else if (mobs[0].x > mobs[i].x)
+                    mobs[i].dir = 0;
                   break;
+                }
+                default:
+                  break;
+              }
+              mobs[i].data--;
+              if (mobs[i].data == 0)
+              {
+                switch(mobs[i].state)
+                {
+                  case MUTANTSTATE_ATTACK:
+                    mobs[i].state = MUTANTSTATE_APPROACH;
+                    mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                    break;
+                  case MUTANTSTATE_APPROACH:
+                    mobs[i].state = MUTANTSTATE_ATTACK;
+                    mobs[i].data = MUTANTSTATEDATA_ATTACK;
+                    break;
+                  case MUTANTSTATE_BACKOFF:
+                  default:
+                    mobs[i].state = MUTANTSTATE_APPROACH;
+                    mobs[i].data = MUTANTSTATEDATA_APPROACH;
+                    break;
+                }
               }
             }
           }
-        }
-        break;
-      default:
-        break;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  else if (state == STATE_GAMEOVER)
+  {
+    if (mobs[0].pause > 0)
+    {
+      mobs[0].pause--;
+      uint8_t btn = checkButton(TAButton1 | TAButton2);
+      uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+    }
+    else
+    {
+      uint8_t btn = checkButton(TAButton1 | TAButton2);
+      uint8_t joyDir = checkJoystick(TAJoystickUp | TAJoystickDown | TAJoystickLeft | TAJoystickRight);
+      if (btn & TAButton1)
+      {
+        world.init();
+        state = STATE_GAME;
+      }
     }
   }
 }
@@ -595,21 +628,6 @@ void World::draw()
             memcpy(lineBuffer + x * 2, getTileData(currentTile, currentY % 8), init * 2);
         }
       }
-/*      for (int n = 0; n < currentArea->countNPC; n++)
-      {
-        if ((currentY >= npc[n].y) && (currentY < npc[n].y + 8))
-        {
-          const uint8_t *data = getTileData(currentArea->npc[n].icon, currentY - npc[n].y);
-          for (int i = 0; i < 8; i++)
-          {
-            if (((data[i * 2] != 255) || (data[i * 2 + 1] != 255)) && (startX <= npc[n].x + i) && (startX + 96 > npc[n].x + i))
-            {
-              lineBuffer[(npc[n].x + i - startX) * 2] = data[i * 2];
-              lineBuffer[(npc[n].x + i - startX) * 2 + 1] = data[i * 2 + 1];
-            }
-          }
-        }
-      }*/
       int orderidx;
       for (orderidx = 0; orderidx < MAX_MOBS; orderidx++)
       {
@@ -661,10 +679,18 @@ void World::draw()
         }
       }
     }
-/*    if (state == STATE_MENU)
+    if ((state == STATE_GAMEOVER) && (lines > 28) && (lines < 42))
     {
-      choice.draw(lines, lineBuffer);
-    }*/
+      const uint8_t *data = _image_game_over_data + (lines - 29) * 89 *2;
+      for (int i = 0; i < 89; i++)
+      {
+        if ((data[i * 2] != 0xf8) || (data[i * 2 + 1] != 0x1f))
+        {
+          lineBuffer[(2 + i) * 2] = data[i * 2];
+          lineBuffer[(2 + i) * 2 + 1] = data[i * 2 + 1];
+        }
+      }
+    }
     display.writeBuffer(lineBuffer,96 * 2);
   }
   display.endTransfer();
