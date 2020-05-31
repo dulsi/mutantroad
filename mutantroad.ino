@@ -191,6 +191,7 @@ class World
     uint8_t getCollision(int xWhere, int yWhere);
     uint8_t getTile(int x, int y);
     const uint8_t *getTileData(int tile, int y);
+    void tryMove(int mobidx, uint8_t joyDir);
 
     const Area *currentArea;
     int tick;
@@ -270,8 +271,8 @@ void World::update()
                 }
                 else
                 {
-                  x1 = mobs[i].x + 10;
-                  x2 = mobs[i].x + 7;
+                  x1 = mobs[i].x + 7;
+                  x2 = mobs[i].x + 10;
                 }
                 for (int mobidx = 0; mobidx < MAX_MOBS; mobidx++)
                 {
@@ -302,111 +303,11 @@ void World::update()
             }
             else if (joyDir > 0)
             {
-              if (mobs[i].frame >= 4)
-                mobs[i].frame = 0;
-              if ((joyDir & TAJoystickUp) && (mobs[i].y - 16 > 0))
-              {
-                if ((mobs[i].y % 8) == 0)
-                {
-                  int yWhere = mobs[i].y / 8;
-                  int xWhere = mobs[i].x / 8;
-                  int xMod = mobs[i].x % 8;
-                  bool col1 = getCollision(xWhere, yWhere - 1);
-                  if (xMod == 0)
-                  {
-                    if (col1 == 0)
-                      mobs[i].y--;
-                  }
-                  else
-                  {
-                    bool col2 = getCollision(xWhere + 1, yWhere - 1);
-                    if ((col1 == 0) && (col2 == 0))
-                      mobs[i].y--;
-                    else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
-                    {
-                      mobs[i].y--;
-                      mobs[i].x--;
-                    }
-                    else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
-                    {
-                      mobs[i].y--;
-                      mobs[i].x++;
-                    }
-                  }
-                }
-                else
-                  mobs[i].y--;
-              }
-              else if ((joyDir & TAJoystickDown) && (mobs[i].y + 1 < world.currentArea->ySize * 8))
-              {
-                if ((mobs[i].y % 8) == 7)
-                {
-                  int yWhere = mobs[i].y / 8;
-                  int xWhere = mobs[i].x / 8;
-                  int xMod = mobs[i].x % 8;
-                  bool col1 = getCollision(xWhere, yWhere + 1);
-                  if (xMod == 0)
-                  {
-                    if (col1 == 0)
-                      mobs[i].y++;
-                  }
-                  else
-                  {
-                    bool col2 = getCollision(xWhere + 1, yWhere + 1);
-                    if ((col1 == 0) && (col2 == 0))
-                      mobs[i].y++;
-                    else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
-                    {
-                      mobs[i].y++;
-                      mobs[i].x--;
-                    }
-                    else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
-                    {
-                      mobs[i].y++;
-                      mobs[i].x++;
-                    }
-                  }
-                }
-                else
-                  mobs[i].y++;
-              }
+              tryMove(i, joyDir);
               if (joyDir & TAJoystickLeft)
-              {
-                if (mobs[i].x > 0)
-                {
-                  if ((mobs[i].x % 8) == 0)
-                  {
-                    int yWhere = mobs[i].y / 8;
-                    int xWhere = mobs[i].x / 8;
-                    bool col1 = getCollision(xWhere - 1, yWhere);
-                    if (col1 == 0)
-                      mobs[i].x--;
-                  }
-                  else
-                    mobs[i].x--;
-                }
                 mobs[i].dir = 1;
-              }
-              else if (joyDir & TAJoystickRight)
-              {
-                if (mobs[i].x + 9 < world.currentArea->xSize * 8)
-                {
-                  if ((mobs[i].x % 8) == 0)
-                  {
-                    int yWhere = mobs[i].y / 8;
-                    int xWhere = mobs[i].x / 8;
-                    int yMod = mobs[i].y % 8;
-                    bool col1 = getCollision(xWhere + 1, yWhere);
-                    if (col1 == 0)
-                      mobs[i].x++;
-                  }
-                  else
-                    mobs[i].x++;
-                }
+              if (joyDir & TAJoystickRight)
                 mobs[i].dir = 0;
-              }
-              if (tick == 0)
-                mobs[i].frame = (mobs[i].frame + 1) % 4;
             }
             else if (tick == 0)
             {
@@ -468,8 +369,8 @@ void World::update()
                 }
                 else
                 {
-                  x1 = mobs[i].x + 10;
-                  x2 = mobs[i].x + 7;
+                  x1 = mobs[i].x + 7;
+                  x2 = mobs[i].x + 10;
                 }
                 if ((mobs[0].y >= mobs[i].y - 1) && (mobs[0].y <= mobs[i].y + 1))
                 {
@@ -510,6 +411,47 @@ void World::update()
                         mobs[i].frame = 4;
                     }
                   }
+                }
+                break;
+              }
+              case MUTANTSTATE_APPROACH:
+              {
+                int x1,x2;
+//                if (mobs[i].dir == 1)
+                {
+                  x1 = mobs[i].x;
+                  x2 = mobs[i].x + 7;
+                }
+/*                else
+                {
+                  x1 = mobs[i].x + 10;
+                  x2 = mobs[i].x + 7;
+                }*/
+                bool dirChange = true;
+                int joyDir = 0;
+                if ((mobs[0].x <= x2) && (mobs[0].x + 8 >= x1))
+                {
+                  dirChange = false;
+                  if (mobs[i].dir == 1)
+                    joyDir |= TAJoystickRight;
+                  else
+                    joyDir |= TAJoystickLeft;
+                }
+                else if (mobs[0].x > mobs[i].x + 9)
+                    joyDir |= TAJoystickRight;
+                else if (mobs[0].x < mobs[i].x - 1)
+                    joyDir |= TAJoystickLeft;
+                if (mobs[0].y > mobs[i].y)
+                    joyDir |= TAJoystickDown;
+                else if (mobs[0].y < mobs[i].y)
+                    joyDir |= TAJoystickUp;
+                tryMove(i, joyDir);
+                if (dirChange)
+                {
+                  if (joyDir & TAJoystickLeft)
+                    mobs[i].dir = 1;
+                  if (joyDir & TAJoystickRight)
+                    mobs[i].dir = 0;
                 }
                 break;
               }
@@ -721,6 +663,113 @@ const uint8_t *World::getTileData(int tile, int y)
   y += ((tile - 1) / 8) * 8;
   int x = ((tile - 1) % 8) * 8;
   return _image_tileset_data + (x + y * (8 * 8 )) * 2;
+}
+
+void World::tryMove(int i, uint8_t joyDir)
+{
+  if (mobs[i].frame >= 4)
+    mobs[i].frame = 0;
+  if ((joyDir & TAJoystickUp) && (mobs[i].y - 16 > 0))
+  {
+    if ((mobs[i].y % 8) == 0)
+    {
+      int yWhere = mobs[i].y / 8;
+      int xWhere = mobs[i].x / 8;
+      int xMod = mobs[i].x % 8;
+      bool col1 = getCollision(xWhere, yWhere - 1);
+      if (xMod == 0)
+      {
+        if (col1 == 0)
+          mobs[i].y--;
+      }
+      else
+      {
+        bool col2 = getCollision(xWhere + 1, yWhere - 1);
+        if ((col1 == 0) && (col2 == 0))
+          mobs[i].y--;
+        else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
+        {
+          mobs[i].y--;
+          mobs[i].x--;
+        }
+        else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
+        {
+          mobs[i].y--;
+          mobs[i].x++;
+        }
+      }
+    }
+    else
+      mobs[i].y--;
+  }
+  else if ((joyDir & TAJoystickDown) && (mobs[i].y + 1 < world.currentArea->ySize * 8))
+  {
+    if ((mobs[i].y % 8) == 7)
+    {
+      int yWhere = mobs[i].y / 8;
+      int xWhere = mobs[i].x / 8;
+      int xMod = mobs[i].x % 8;
+      bool col1 = getCollision(xWhere, yWhere + 1);
+      if (xMod == 0)
+      {
+        if (col1 == 0)
+          mobs[i].y++;
+      }
+      else
+      {
+        bool col2 = getCollision(xWhere + 1, yWhere + 1);
+        if ((col1 == 0) && (col2 == 0))
+          mobs[i].y++;
+        else if ((col1 == 0) && (col2 != 0) && (xMod == 1))
+        {
+          mobs[i].y++;
+          mobs[i].x--;
+        }
+        else if ((col1 != 0) && (col2 == 0) && (xMod == 7))
+        {
+          mobs[i].y++;
+          mobs[i].x++;
+        }
+      }
+    }
+    else
+      mobs[i].y++;
+  }
+  if (joyDir & TAJoystickLeft)
+  {
+    if (mobs[i].x > 0)
+    {
+      if ((mobs[i].x % 8) == 0)
+      {
+        int yWhere = mobs[i].y / 8;
+        int xWhere = mobs[i].x / 8;
+        bool col1 = getCollision(xWhere - 1, yWhere);
+        if (col1 == 0)
+          mobs[i].x--;
+      }
+      else
+        mobs[i].x--;
+    }
+  }
+  else if (joyDir & TAJoystickRight)
+  {
+    if (mobs[i].x + 9 < world.currentArea->xSize * 8)
+    {
+      if ((mobs[i].x % 8) == 0)
+      {
+        int yWhere = mobs[i].y / 8;
+        int xWhere = mobs[i].x / 8;
+        int yMod = mobs[i].y % 8;
+        bool col1 = getCollision(xWhere + 1, yWhere);
+        if (col1 == 0)
+          mobs[i].x++;
+      }
+      else
+        mobs[i].x++;
+    }
+  }
+  if (tick == 0)
+    mobs[i].frame = (mobs[i].frame + 1) % 4;
 }
 
 void setup()
