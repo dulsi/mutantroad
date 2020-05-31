@@ -104,8 +104,10 @@ int pause = 0;
 #define PLFRAME_FALLING 10
 #define PLFRAME_GROUND 11
 #define PLFRAME_PUNCH 12
+#define PLFRAME_KICK 14
 
 #define PAUSE_PUNCH 16
+#define PAUSE_KICK 20
 #define PAUSE_HURT 16
 #define PAUSE_GROUND 100
 
@@ -172,7 +174,7 @@ const uint8_t *Mob::getFrame(int currentY)
       else if (frame == PLFRAME_GROUND)
         return _image_renegade4_data + (currentY - y + 15) * 16 *2;
       else
-        return _image_renegade2_data + (currentY - y + 15) * 24 *2 + (frame - PLFRAME_PUNCH) * 12 * 2;
+        return _image_renegade2_data + (currentY - y + 15) * 48 *2 + (frame - PLFRAME_PUNCH) * 12 * 2;
       break;
     case OBJTYPE_MUTANT:
       if (frame < PLFRAME_FALLING)
@@ -265,7 +267,7 @@ void World::update()
             mobs[i].pause--;
             if (mobs[i].pause == 0)
             {
-              if (mobs[i].frame == PLFRAME_PUNCH)
+              if ((mobs[i].frame == PLFRAME_PUNCH) || (mobs[i].frame == PLFRAME_KICK))
                 mobs[i].frame = 2;
               else if (mobs[i].frame == PLFRAME_FALLING)
               {
@@ -320,6 +322,50 @@ void World::update()
                   {
                     x1 = mobs[i].x + 7;
                     x2 = mobs[i].x + 10;
+                  }
+                  for (int mobidx = 0; mobidx < MAX_MOBS; mobidx++)
+                  {
+                    if (mobidx == i)
+                      continue;
+                    if (mobs[mobidx].objtype == OBJTYPE_NONE)
+                      continue;
+                    if ((mobs[mobidx].y >= mobs[i].y - 1) && (mobs[mobidx].y <= mobs[i].y + 1))
+                    {
+                      if ((mobs[mobidx].x <= x2) && (mobs[mobidx].x + 8 >= x1))
+                      {
+                        if ((mobs[mobidx].frame != PLFRAME_HURT) && (mobs[mobidx].frame != PLFRAME_FALLING) && (mobs[mobidx].frame != PLFRAME_GROUND) && (mobs[mobidx].frame != PLFRAME_GETUP))
+                        {
+                          mobs[mobidx].frame = PLFRAME_HURT;
+                          mobs[mobidx].pause = PAUSE_HURT;
+                          mobs[mobidx].health--;
+                          mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
+                          if (mobs[mobidx].knockdown == 0x3F)
+                          {
+                            mobs[mobidx].frame = PLFRAME_FALLING;
+                            mobs[mobidx].knockdown = 0;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                if (btn & TAButton2)
+                {
+                  mobs[i].pause = PAUSE_KICK;
+                  if (mobs[i].frame >= 2)
+                    mobs[i].frame = PLFRAME_KICK + 1;
+                  else
+                    mobs[i].frame = PLFRAME_KICK;
+                  int x1,x2;
+                  if (mobs[i].dir == 1)
+                  {
+                    x1 = mobs[i].x - 4;
+                    x2 = mobs[i].x + 1;
+                  }
+                  else
+                  {
+                    x1 = mobs[i].x + 7;
+                    x2 = mobs[i].x + 12;
                   }
                   for (int mobidx = 0; mobidx < MAX_MOBS; mobidx++)
                   {
