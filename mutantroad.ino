@@ -21,6 +21,7 @@ unsigned long lastTime;
 #define MAX_FLAGS 50
 
 #define CMD_SPAWNMUTANT 1
+#define CMD_LOCKX 2
 
 class AreaScript
 {
@@ -68,7 +69,11 @@ const uint8_t tilesetCollision[] = {
 
 const AreaScript roadScript[] = {
   AreaScript(100, 0, CMD_SPAWNMUTANT, 0, 100, 80),
-  AreaScript(115, 1, CMD_SPAWNMUTANT, 0, 110, 70),
+  AreaScript(115, 1, CMD_SPAWNMUTANT, 0, 115, 70),
+  AreaScript(150, 2, CMD_LOCKX, 0, 55, 0),
+  AreaScript(150, 3, CMD_SPAWNMUTANT, 0, 150, 70),
+  AreaScript(150, 4, CMD_SPAWNMUTANT, 0, 150, 80),
+  AreaScript(150, 5, CMD_SPAWNMUTANT, 0, 54, 75),
   AreaScript(0, 0, 0, 0, 0, 0),
 };
 const uint8_t roadMap[] = {
@@ -220,7 +225,7 @@ uint8_t order[MAX_MOBS];
 class World
 {
   public:
-    World(const Area *cArea) : currentArea(cArea), tick(0), scriptStart(0) { init(); }
+    World(const Area *cArea) : currentArea(cArea), tick(0), scriptStart(0), startX(0), lockX(-1) { init(); }
     void init();
     void update();
     void draw();
@@ -233,6 +238,8 @@ class World
     int tick;
     int scriptStart;
     bool flags[MAX_FLAGS];
+    int startX;
+    int lockX;
 };
 
 World world(&road);
@@ -250,6 +257,8 @@ void World::init()
   for (int i = 0; i < MAX_FLAGS; i++)
     flags[i] = false;
   scriptStart = 0;
+  startX = 0;
+  lockX = -1;
 }
 
 void World::update()
@@ -339,7 +348,7 @@ void World::update()
                           mobs[mobidx].pause = PAUSE_HURT;
                           mobs[mobidx].health--;
                           mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
-                          if (mobs[mobidx].knockdown == 0x3F)
+                          if ((mobs[mobidx].knockdown == 0x3F) || (mobs[mobidx].health == 0))
                           {
                             mobs[mobidx].frame = PLFRAME_FALLING;
                             mobs[mobidx].knockdown = 0;
@@ -383,7 +392,7 @@ void World::update()
                           mobs[mobidx].pause = PAUSE_HURT;
                           mobs[mobidx].health--;
                           mobs[mobidx].knockdown = (mobs[mobidx].knockdown + 16) | 0x0F;
-                          if (mobs[mobidx].knockdown == 0x3F)
+                          if ((mobs[mobidx].knockdown == 0x3F) || (mobs[mobidx].health == 0))
                           {
                             mobs[mobidx].frame = PLFRAME_FALLING;
                             mobs[mobidx].knockdown = 0;
@@ -624,9 +633,16 @@ void World::update()
 
 void World::draw()
 {
-  int startX(0), startY(0);
+  int preferedX(0), startY(0);
 
-  startX = mobs[0].x + 52 - 96;
+  preferedX = mobs[0].x + 52 - 96;
+  if ((startX != lockX) && ((tick == 0) || (tick == 4)))
+  {
+    if (preferedX > startX)
+      startX++;
+    else if (preferedX < startX)
+      startX--;
+  }
   startY = mobs[0].y + 20 - 64;
   if (startX < 0)
     startX = 0;
@@ -640,6 +656,17 @@ void World::draw()
   {
     if (currentArea->script[i].run() && (i == scriptStart))
       scriptStart++;
+  }
+  if (lockX != -1)
+  {
+    bool nomob = true;
+    for (int i = 1; i < MAX_MOBS; i++)
+    {
+      if (mobs[i].objtype != OBJTYPE_NONE)
+        nomob = false;
+    }
+    if (nomob)
+      lockX = -1;
   }
   display.goTo(0,0);
   display.startData();
@@ -957,6 +984,10 @@ bool AreaScript::run() const
           return true;
         }
       }
+      break;
+    case CMD_LOCKX:
+      world.lockX = arg2;
+      return true;
       break;
     default:
       break;
